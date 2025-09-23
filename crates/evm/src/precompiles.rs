@@ -9,7 +9,6 @@ use alloy_primitives::{
 };
 use core::fmt::Debug;
 use revm::{
-    context::LocalContextTr,
     handler::{EthPrecompiles, PrecompileProvider},
     interpreter::{CallInput, Gas, InputsImpl, InstructionResult, InterpreterResult},
     precompile::{PrecompileError, PrecompileFn, PrecompileResult, Precompiles},
@@ -315,12 +314,13 @@ impl core::fmt::Debug for PrecompilesMap {
     }
 }
 
-impl<BlockEnv, TxEnv, CfgEnv, DB, Chain>
-    PrecompileProvider<Context<BlockEnv, TxEnv, CfgEnv, DB, Journal<DB>, Chain>> for PrecompilesMap
+impl<BlockEnv, TxEnv, CfgEnv, DB, Chain, LocalContext>
+    PrecompileProvider<Context<BlockEnv, TxEnv, CfgEnv, DB, Journal<DB>, Chain, LocalContext>> for PrecompilesMap
 where
     BlockEnv: revm::context::Block,
     TxEnv: revm::context::Transaction,
     CfgEnv: revm::context::Cfg,
+    LocalContext: revm::context::LocalContextTr,
     DB: Database,
 {
     type Output = InterpreterResult;
@@ -331,7 +331,7 @@ where
 
     fn run(
         &mut self,
-        context: &mut Context<BlockEnv, TxEnv, CfgEnv, DB, Journal<DB>, Chain>,
+        context: &mut Context<BlockEnv, TxEnv, CfgEnv, DB, Journal<DB>, Chain, LocalContext>,
         address: &Address,
         inputs: &InputsImpl,
         _is_static: bool,
