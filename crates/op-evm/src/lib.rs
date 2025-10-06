@@ -20,7 +20,7 @@ use op_revm::{
     OpTransaction, OpTransactionError,
 };
 use revm::{
-    context::{BlockEnv, TxEnv},
+    context::{BlockEnv, CfgEnv, TxEnv},
     context_interface::result::{EVMError, ResultAndState},
     handler::{instructions::EthInstructions, PrecompileProvider},
     inspector::NoOpInspector,
@@ -90,6 +90,8 @@ where
     P: PrecompileProvider<OpContext<DB>, Output = InterpreterResult>,
 {
     type DB = DB;
+    type Block = BlockEnv;
+    type Config = CfgEnv<OpSpecId>;
     type Tx = OpTransaction<TxEnv>;
     type Error = EVMError<DB::Error, OpTransactionError>;
     type HaltReason = OpHaltReason;
@@ -125,7 +127,7 @@ where
         self.inner.transact_system_call_with_caller_finalize(caller, contract, data)
     }
 
-    fn finish(self) -> (Self::DB, EvmEnv<Self::Spec>) {
+    fn finish(self) -> (Self::DB, EvmEnv<Self::Block, Self::Config>) {
         let Context { block: block_env, cfg: cfg_env, journaled_state, .. } = self.inner.0.ctx;
 
         (journaled_state.database, EvmEnv { block_env, cfg_env })
@@ -160,6 +162,8 @@ pub struct OpEvmFactory;
 impl EvmFactory for OpEvmFactory {
     type Evm<DB: Database, I: Inspector<OpContext<DB>>> = OpEvm<DB, I, Self::Precompiles>;
     type Context<DB: Database> = OpContext<DB>;
+    type Block = BlockEnv;
+    type Config = CfgEnv<OpSpecId>;
     type Tx = OpTransaction<TxEnv>;
     type Error<DBError: core::error::Error + Send + Sync + 'static> =
         EVMError<DBError, OpTransactionError>;
@@ -170,7 +174,7 @@ impl EvmFactory for OpEvmFactory {
     fn create_evm<DB: Database>(
         &self,
         db: DB,
-        input: EvmEnv<OpSpecId>,
+        input: EvmEnv<Self::Block, Self::Config>,
     ) -> Self::Evm<DB, NoOpInspector> {
         let spec_id = input.cfg_env.spec;
         OpEvm {
@@ -189,7 +193,7 @@ impl EvmFactory for OpEvmFactory {
     fn create_evm_with_inspector<DB: Database, I: Inspector<Self::Context<DB>>>(
         &self,
         db: DB,
-        input: EvmEnv<OpSpecId>,
+        input: EvmEnv<Self::Block, Self::Config>,
         inspector: I,
     ) -> Self::Evm<DB, I> {
         let spec_id = input.cfg_env.spec;
